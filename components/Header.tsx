@@ -29,7 +29,25 @@ export default function Header() {
 
   function addNewChatterBot() {
     disconnect();
-    addAgent(createNewAgent());
+    
+    // Determine the highest existing number for default agent names
+    const defaultAgentRegex = /^New ChatterBot #(\d+)$/;
+    let maxNum = 0;
+    availablePersonal.forEach(agent => {
+        const match = agent.name.match(defaultAgentRegex);
+        if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNum) {
+                maxNum = num;
+            }
+        }
+    });
+    
+    const newAgent = createNewAgent({
+      name: `New ChatterBot #${maxNum + 1}`
+    });
+    
+    addAgent(newAgent);
     setShowAgentEdit(true);
   }
 
@@ -65,7 +83,7 @@ export default function Header() {
                 .filter(agent => agent.id !== current.id)
                 .map(agent => (
                   <li
-                    key={agent.name}
+                    key={agent.id}
                     className={c({ active: agent.id === current.id })}
                   >
                     <button onClick={() => changeAgent(agent)}>
@@ -82,7 +100,7 @@ export default function Header() {
               <ul>
                 {availablePersonal.length ? (
                   availablePersonal.map(({ id, name }) => (
-                    <li key={name} className={c({ active: id === current.id })}>
+                    <li key={id} className={c({ active: id === current.id })}>
                       <button onClick={() => changeAgent(id)}>{name}</button>
                     </li>
                   ))
