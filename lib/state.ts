@@ -54,23 +54,67 @@ const personalAgents = loadPersonalAgents();
 
 function getAgentById(id: string) {
   const { availablePersonal, availablePresets } = useAgent.getState();
-  return (
-    availablePersonal.find(agent => agent.id === id) ||
-    availablePresets.find(agent => agent.id === id)
-  );
+  const allAgents = [...availablePersonal, ...availablePresets];
+  return allAgents.find(agent => agent.id === id);
 }
 
-export const useAgent = create<{
-  current: Agent;
-  availablePresets: Agent[];
-  availablePersonal: Agent[];
-  setCurrent: (agent: Agent | string) => void;
-  addAgent: (agent: Agent) => void;
-  update: (agentId: string, adjustments: Partial<Agent>) => void;
-}>(set => ({
-  current: Paul,
+export const useAgent = create<
+  {
+    active: Agent[];
+    availablePresets: Agent[];
+    availablePersonal: Agent[];
+    editingAgentId: string | null;
+    turnIndex: number;
+    speaker: Agent;
+    toggleActive: (agentId: string) => void;
+    addAgent: (agent: Agent) => void;
+    update: (agentId: string, adjustments: Partial<Agent>) => void;
+    nextTurn: () => void;
+    setEditingAgentId: (agentId: string | null) => void;
+  }
+>((set, get) => ({
+  active: [Paul],
   availablePresets: [Paul, Charlotte, Shane, Penny],
   availablePersonal: personalAgents,
+  editingAgentId: null,
+  turnIndex: 0,
+  speaker: Paul,
+
+  setEditingAgentId: (agentId: string | null) => {
+    set({ editingAgentId: agentId });
+  },
+
+  toggleActive: (agentId: string) => {
+    set(state => {
+      const isCurrentlyActive = state.active.some(a => a.id === agentId);
+      let newActiveAgents: Agent[];
+
+      if (isCurrentlyActive) {
+        // Prevent removing the last agent
+        if (state.active.length > 1) {
+          newActiveAgents = state.active.filter(a => a.id !== agentId);
+        } else {
+          newActiveAgents = state.active;
+        }
+      } else {
+        const agentToAdd = getAgentById(agentId);
+        if (agentToAdd) {
+          newActiveAgents = [...state.active, agentToAdd];
+        } else {
+          newActiveAgents = state.active;
+        }
+      }
+
+      const newTurnIndex = Math.min(state.turnIndex, newActiveAgents.length - 1);
+      const newSpeaker = newActiveAgents[newTurnIndex];
+
+      return {
+        active: newActiveAgents,
+        turnIndex: newTurnIndex,
+        speaker: newSpeaker,
+      };
+    });
+  },
 
   addAgent: (agent: Agent) => {
     set(state => {
@@ -78,39 +122,38 @@ export const useAgent = create<{
       savePersonalAgents(newPersonalAgents);
       return {
         availablePersonal: newPersonalAgents,
-        current: agent,
+        active: [...state.active, agent],
       };
     });
   },
-  setCurrent: (agent: Agent | string) =>
-    set({ current: typeof agent === 'string' ? getAgentById(agent) : agent }),
-  update: (agentId: string, adjustments: Partial<Agent>) => {
+
+  nextTurn: () => {
     set(state => {
-      const agentToUpdate =
-        state.availablePersonal.find(a => a.id === agentId) ||
-        state.availablePresets.find(a => a.id === agentId);
+      const newTurnIndex = (state.turnIndex + 1) % state.active.length;
+      const newSpeaker = state.active[newTurnIndex];
+      return { turnIndex: newTurnIndex, speaker: newSpeaker };
+    });
+  },
 
-      if (!agentToUpdate) {
-        return state;
-      }
+  update: (agentId: string, adjustments: Partial<Agent>) => {
+    const updateAgentInList = (list: Agent[]) =>
+      list.map(a => (a.id === agentId ? { ...a, ...adjustments } : a));
 
-      const updatedAgent = { ...agentToUpdate, ...adjustments };
+    set(state => {
+      const newPersonalAgents = updateAgentInList(state.availablePersonal);
+      const newActiveAgents = updateAgentInList(state.active);
 
-      const wasPersonal = state.availablePersonal.some(a => a.id === agentId);
-      const newPersonalAgents = state.availablePersonal.map(a =>
-        a.id === agentId ? updatedAgent : a
-      );
-
-      if (wasPersonal) {
+      if (state.availablePersonal.some(a => a.id === agentId)) {
         savePersonalAgents(newPersonalAgents);
       }
 
       return {
-        current: state.current.id === agentId ? updatedAgent : state.current,
-        availablePresets: state.availablePresets.map(a =>
-          a.id === agentId ? updatedAgent : a
-        ),
         availablePersonal: newPersonalAgents,
+        active: newActiveAgents,
+        speaker:
+          state.speaker.id === agentId
+            ? newActiveAgents.find(a => a.id === agentId)!
+            : state.speaker,
       };
     });
   },

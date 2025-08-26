@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import { useLiveAPIContext } from '@/contexts/LiveAPIContext';
-import { Agent, createNewAgent } from '@/lib/presets/agents';
+import { createNewAgent } from '@/lib/presets/agents';
 import { useAgent, useUI, useUser } from '@/lib/state';
 import c from 'classnames';
 import { useEffect, useState } from 'react';
@@ -11,43 +11,50 @@ import { useEffect, useState } from 'react';
 export default function Header() {
   const { showUserConfig, setShowUserConfig, setShowAgentEdit } = useUI();
   const { name } = useUser();
-  const { current, setCurrent, availablePresets, availablePersonal, addAgent } =
-    useAgent();
+  const {
+    active,
+    toggleActive,
+    availablePresets,
+    availablePersonal,
+    addAgent,
+    setEditingAgentId,
+  } = useAgent();
   const { disconnect } = useLiveAPIContext();
 
-  let [showRoomList, setShowRoomList] = useState(false);
+  const [showRoomList, setShowRoomList] = useState(false);
 
   useEffect(() => {
-    addEventListener('click', () => setShowRoomList(false));
-    return () => removeEventListener('click', () => setShowRoomList(false));
+    const close = () => setShowRoomList(false);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
   }, []);
 
-  function changeAgent(agent: Agent | string) {
+  function handleAgentSelection(agentId: string) {
     disconnect();
-    setCurrent(agent);
+    toggleActive(agentId);
   }
 
   function addNewChatterBot() {
     disconnect();
-    
-    // Determine the highest existing number for default agent names
+
     const defaultAgentRegex = /^New ChatterBot #(\d+)$/;
     let maxNum = 0;
     availablePersonal.forEach(agent => {
-        const match = agent.name.match(defaultAgentRegex);
-        if (match) {
-            const num = parseInt(match[1], 10);
-            if (num > maxNum) {
-                maxNum = num;
-            }
+      const match = agent.name.match(defaultAgentRegex);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) {
+          maxNum = num;
         }
+      }
     });
-    
+
     const newAgent = createNewAgent({
-      name: `New ChatterBot #${maxNum + 1}`
+      name: `New ChatterBot #${maxNum + 1}`,
     });
-    
+
     addAgent(newAgent);
+    setEditingAgentId(newAgent.id);
     setShowAgentEdit(true);
   }
 
@@ -62,35 +69,43 @@ export default function Header() {
             }}
           >
             <h1 className={c({ active: showRoomList })}>
-              {current.name}
+              <span>{active.map(a => a.name).join(', ')}</span>
               <span className="icon">arrow_drop_down</span>
             </h1>
           </button>
-
-          <button
-            onClick={() => setShowAgentEdit(true)}
-            className="button createButton"
-          >
-            <span className="icon">edit</span> Edit
-          </button>
+          <div className="active-agents-controls">
+            {active.map(agent => (
+              <button
+                key={agent.id}
+                title={`Edit ${agent.name}`}
+                className="button edit-agent-button"
+                onClick={() => {
+                  setEditingAgentId(agent.id);
+                  setShowAgentEdit(true);
+                }}
+              >
+                <span className="icon">edit</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className={c('roomList', { active: showRoomList })}>
           <div>
             <h3>Presets</h3>
             <ul>
-              {availablePresets
-                .filter(agent => agent.id !== current.id)
-                .map(agent => (
-                  <li
-                    key={agent.id}
-                    className={c({ active: agent.id === current.id })}
-                  >
-                    <button onClick={() => changeAgent(agent)}>
-                      {agent.name}
-                    </button>
-                  </li>
-                ))}
+              {availablePresets.map(agent => (
+                <li
+                  key={agent.id}
+                  className={c({
+                    active: active.some(a => a.id === agent.id),
+                  })}
+                >
+                  <button onClick={() => handleAgentSelection(agent.id)}>
+                    {agent.name}
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -99,9 +114,16 @@ export default function Header() {
             {
               <ul>
                 {availablePersonal.length ? (
-                  availablePersonal.map(({ id, name }) => (
-                    <li key={id} className={c({ active: id === current.id })}>
-                      <button onClick={() => changeAgent(id)}>{name}</button>
+                  availablePersonal.map(agent => (
+                    <li
+                      key={agent.id}
+                      className={c({
+                        active: active.some(a => a.id === agent.id),
+                      })}
+                    >
+                      <button onClick={() => handleAgentSelection(agent.id)}>
+                        {agent.name}
+                      </button>
                     </li>
                   ))
                 ) : (
@@ -124,7 +146,7 @@ export default function Header() {
         className="userSettingsButton"
         onClick={() => setShowUserConfig(!showUserConfig)}
       >
-        <p className='user-name'>{name || 'Your name'}</p>
+        <p className="user-name">{name || 'Your name'}</p>
         <span className="icon">tune</span>
       </button>
     </header>

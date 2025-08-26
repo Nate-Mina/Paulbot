@@ -795,7 +795,7 @@ input[type='range'] {
 .roomInfo h1 {
   font-size: 16px;
   @media (min-width: 768px) {
-    font-size: 28px;
+    font-size: 24px;
   }
   font-weight: normal;
   display: flex;
@@ -803,6 +803,14 @@ input[type='range'] {
   opacity: 0.5;
   transition: all 0.2s;
   text-align: left;
+  gap: 8px;
+  max-width: 60vw;
+}
+
+.roomInfo h1 > span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .roomInfo h1:hover,
@@ -814,15 +822,26 @@ input[type='range'] {
   font-size: 22px;
 }
 
-.roomInfo .createButton {
-  opacity: 1;
-  @media (min-width: 768px) {
-    opacity: 0;
-  }
-}
-
 .roomName {
   display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.active-agents-controls {
+  display: flex;
+  gap: 5px;
+}
+
+.edit-agent-button {
+  padding: 5px;
+  background: var(--Neutral-20);
+  border-radius: 5px;
+  min-width: 0;
+}
+
+.edit-agent-button .icon {
+  font-size: 18px;
 }
 
 .roomDescription {
@@ -900,11 +919,18 @@ input[type='range'] {
   color: var(--gray-500);
   transition: all 0.2s;
   width: 100%;
+  justify-content: flex-start;
 }
 
 .roomList li.active button,
 .roomList li:hover button {
   color: white;
+}
+
+.roomList li.active button::before {
+  content: '✓';
+  margin-right: 10px;
+  color: var(--accent-green);
 }
 
 .roomList .newRoomButton {

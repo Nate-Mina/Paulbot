@@ -14,17 +14,29 @@ import c from 'classnames';
 import { useAgent, useUI } from '@/lib/state';
 
 export default function EditAgent() {
-  const agent = useAgent(state => state.current);
-  const updateAgent = useAgent(state => state.update);
-  const nameInput = useRef(null);
+  const { editingAgentId, update, availablePersonal, availablePresets } =
+    useAgent();
+  const agent = [...availablePersonal, ...availablePresets].find(
+    a => a.id === editingAgentId
+  );
   const { setShowAgentEdit } = useUI();
+  const { setEditingAgentId } = useAgent();
+
+  const nameInput = useRef(null);
 
   function onClose() {
     setShowAgentEdit(false);
+    setEditingAgentId(null);
   }
 
   function updateCurrentAgent(adjustments: Partial<Agent>) {
-    updateAgent(agent.id, adjustments);
+    if (agent) {
+      update(agent.id, adjustments);
+    }
+  }
+
+  if (!agent) {
+    return null;
   }
 
   return (

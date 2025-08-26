@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GenAILiveClient } from '../../lib/genai-live-client';
-import { LiveConnectConfig } from '@google/genai';
+import { LiveConnectConfig, LiveServerContent } from '@google/genai';
 import { AudioStreamer } from '../../lib/audio-streamer';
 import { audioContext } from '../../lib/utils';
 import VolMeterWorket from '../../lib/worklets/vol-meter';
@@ -36,6 +36,8 @@ export type UseLiveApiResults = {
   connected: boolean;
 
   volume: number;
+  latestText: string;
+  resetLatestText: () => void;
 };
 
 export function useLiveApi({
@@ -45,13 +47,17 @@ export function useLiveApi({
   apiKey: string;
   model?: string;
 }): UseLiveApiResults {
-  const client = useMemo(() => new GenAILiveClient(apiKey, model), [apiKey, model]);
+  const client = useMemo(
+    () => new GenAILiveClient(apiKey, model),
+    [apiKey, model]
+  );
 
   const audioStreamerRef = useRef<AudioStreamer | null>(null);
 
   const [volume, setVolume] = useState(0);
   const [connected, setConnected] = useState(false);
   const [config, setConfig] = useState<LiveConnectConfig>({});
+  const [latestText, setLatestText] = useState('');
 
   // register audio for streaming server -> speakers
   useEffect(() => {
@@ -93,20 +99,35 @@ export function useLiveApi({
       }
     };
 
+    const onContent = (data: LiveServerContent) => {
+      const textPart = data.modelTurn?.parts?.find(p => 'text' in p);
+      if (textPart && 'text' in textPart) {
+        setLatestText(text => text + textPart.text);
+      }
+    };
+
+    const onTurnComplete = () => {
+      // The text is sent in chunks, so we only want to trigger the
+      // conversation loop once the full response is received.
+      // We will reset this text in the control tray.
+    };
+
     // Bind event listeners
-    // Fix: Correctly call `on` method, which is available on GenAILiveClient.
     client.on('open', onOpen);
     client.on('close', onClose);
     client.on('interrupted', stopAudioStreamer);
     client.on('audio', onAudio);
+    client.on('content', onContent);
+    client.on('turncomplete', onTurnComplete);
 
     return () => {
       // Clean up event listeners
-      // Fix: Correctly call `off` method, which is available on GenAILiveClient.
       client.off('open', onOpen);
       client.off('close', onClose);
       client.off('interrupted', stopAudioStreamer);
       client.off('audio', onAudio);
+      client.off('content', onContent);
+      client.off('turncomplete', onTurnComplete);
     };
   }, [client]);
 
@@ -123,6 +144,10 @@ export function useLiveApi({
     setConnected(false);
   }, [setConnected, client]);
 
+  const resetLatestText = useCallback(() => {
+    setLatestText('');
+  }, []);
+
   return {
     client,
     config,
@@ -131,5 +156,7 @@ export function useLiveApi({
     connected,
     disconnect,
     volume,
+    latestText,
+    resetLatestText,
   };
 }

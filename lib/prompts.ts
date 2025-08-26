@@ -5,9 +5,18 @@
 import { Agent } from './presets/agents';
 import { User } from './state';
 
-export const createSystemInstructions = (agent: Agent, user: User) =>
+export const createSystemInstructions = (
+  agent: Agent,
+  user: User,
+  otherAgents: Agent[]
+) =>
   `Your name is ${agent.name} and you are in a conversation with the user\
-${user.name ? ` (${user.name})` : ''}.
+${user.name ? ` (${user.name})` : ''}\
+${
+  otherAgents.length > 0
+    ? ` and the following other agents: ${otherAgents.map(a => a.name).join(', ')}.`
+    : '.'
+}
 
 Your personality is described like this:
 ${agent.personality}\
@@ -26,6 +35,7 @@ Today's date is ${new Intl.DateTimeFormat(navigator.languages[0], {
     .toLocaleTimeString()
     .replace(/:\d\d /, ' ')}.
 
+IMPORTANT: You are speaking after the previous person. Respond to what they said in character.
 Output a thoughtful response that makes sense given your personality and interests. \
 Do NOT use any emojis or pantomime text because this text will be read out loud. \
 Keep it fairly concise, don't speak too many sentences at once. NEVER EVER repeat \

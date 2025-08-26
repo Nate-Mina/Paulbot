@@ -11,48 +11,34 @@ import { createSystemInstructions } from '@/lib/prompts';
 import { useAgent, useUser } from '@/lib/state';
 
 export default function KeynoteCompanion() {
-  const { client, connected, setConfig } = useLiveAPIContext();
+  const { setConfig } = useLiveAPIContext();
   const faceCanvasRef = useRef<HTMLCanvasElement>(null);
   const user = useUser();
-  const { current } = useAgent();
+  const { speaker, active } = useAgent();
 
   // Set the configuration for the Live API
   useEffect(() => {
+    const otherAgents = active.filter(a => a.id !== speaker.id);
     setConfig({
       responseModalities: [Modality.AUDIO],
       speechConfig: {
         voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: current.voice },
+          prebuiltVoiceConfig: { voiceName: speaker.voice },
         },
       },
       systemInstruction: {
         parts: [
           {
-            text: createSystemInstructions(current, user),
+            text: createSystemInstructions(speaker, user, otherAgents),
           },
         ],
       },
     });
-  }, [setConfig, user, current]);
-
-  // Initiate the session when the Live API connection is established
-  // Instruct the model to send an initial greeting message
-  useEffect(() => {
-    const beginSession = async () => {
-      if (!connected) return;
-      client.send(
-        {
-          text: 'Greet the user and introduce yourself and your role.',
-        },
-        true
-      );
-    };
-    beginSession();
-  }, [client, connected]);
+  }, [setConfig, user, speaker, active]);
 
   return (
     <div className="keynote-companion">
-      <BasicFace canvasRef={faceCanvasRef!} color={current.bodyColor} />
+      <BasicFace canvasRef={faceCanvasRef!} color={speaker.bodyColor} />
     </div>
   );
 }
